@@ -31,6 +31,7 @@ class HandwritingRecognizerImpl : HandwritingRecognizer {
     private var currentLanguageTag: String? = null
 
     override fun init(context: Context) {
+        android.util.Log.e("HandwritingRecognizer", "=== INIT RUNNING ===", Throwable())
         this.appContext = context.applicationContext
         
         try {
@@ -38,8 +39,13 @@ class HandwritingRecognizerImpl : HandwritingRecognizer {
                 this.appContext,
                 Configuration.Builder().build()
             )
+            android.util.Log.e("HandwritingRecognizer", "WorkManager initialized successfully!")
+            
+            // Verify WorkManager is ready
+            val wm = WorkManager.getInstance(this.appContext)
+            android.util.Log.e("HandwritingRecognizer", "WorkManager.getInstance() succeeded: $wm")
         } catch (e: Exception) {
-            android.util.Log.d("HandwritingRecognizer", "WorkManager already initialized or failed: ${e.message}")
+            android.util.Log.e("HandwritingRecognizer", "WorkManager initialization failed!", e)
         }
 
         try {
@@ -48,6 +54,7 @@ class HandwritingRecognizerImpl : HandwritingRecognizer {
                 DigitalInkRecognitionRegistrar()
             )
             MlKitContext.initialize(this.appContext, registrars)
+            android.util.Log.e("HandwritingRecognizer", "MlKitContext initialized successfully!")
         } catch (e: Exception) {
             android.util.Log.e("HandwritingRecognizer", "Failed to initialize MlKitContext", e)
         }
