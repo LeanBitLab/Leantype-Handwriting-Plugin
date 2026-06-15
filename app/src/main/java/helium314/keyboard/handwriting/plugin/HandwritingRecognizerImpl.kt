@@ -3,6 +3,7 @@ package helium314.keyboard.handwriting.plugin
 
 import android.content.Context
 import com.google.android.gms.tasks.Tasks
+import com.google.mlkit.common.MlKit
 import com.google.mlkit.common.model.DownloadConditions
 import com.google.mlkit.common.model.RemoteModelManager
 import com.google.mlkit.vision.digitalink.DigitalInkRecognition
@@ -18,7 +19,7 @@ import java.util.concurrent.TimeUnit
 class HandwritingRecognizerImpl : HandwritingRecognizer {
 
     private lateinit var appContext: Context
-    private val modelManager = RemoteModelManager.getInstance()
+    private lateinit var modelManager: RemoteModelManager
     
     private var currentModel: DigitalInkRecognitionModel? = null
     private var currentRecognizer: DigitalInkRecognizer? = null
@@ -26,6 +27,8 @@ class HandwritingRecognizerImpl : HandwritingRecognizer {
 
     override fun init(context: Context) {
         this.appContext = context.applicationContext
+        MlKit.initialize(this.appContext)
+        modelManager = RemoteModelManager.getInstance()
     }
 
     override fun setLanguage(language: String): Boolean {
