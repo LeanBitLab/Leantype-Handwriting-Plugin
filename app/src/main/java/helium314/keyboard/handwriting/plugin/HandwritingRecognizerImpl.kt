@@ -3,6 +3,8 @@ package helium314.keyboard.handwriting.plugin
 
 import android.content.Context
 import com.google.android.gms.tasks.Tasks
+import androidx.work.Configuration
+import androidx.work.WorkManager
 import com.google.firebase.components.ComponentRegistrar
 import com.google.mlkit.common.internal.CommonComponentRegistrar
 import com.google.mlkit.common.model.DownloadConditions
@@ -30,6 +32,16 @@ class HandwritingRecognizerImpl : HandwritingRecognizer {
 
     override fun init(context: Context) {
         this.appContext = context.applicationContext
+        
+        try {
+            WorkManager.initialize(
+                this.appContext,
+                Configuration.Builder().build()
+            )
+        } catch (e: Exception) {
+            android.util.Log.d("HandwritingRecognizer", "WorkManager already initialized or failed: ${e.message}")
+        }
+
         try {
             val registrars = listOf<ComponentRegistrar>(
                 CommonComponentRegistrar(),
