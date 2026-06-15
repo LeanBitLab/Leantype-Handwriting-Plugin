@@ -5,3 +5,6 @@
 /app/build
 .DS_Store
 *.iml
+.antigravity/
+.antigravityignore
+
