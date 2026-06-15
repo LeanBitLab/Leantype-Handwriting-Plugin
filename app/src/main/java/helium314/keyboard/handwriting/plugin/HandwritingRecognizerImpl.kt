@@ -3,15 +3,18 @@ package helium314.keyboard.handwriting.plugin
 
 import android.content.Context
 import com.google.android.gms.tasks.Tasks
-import com.google.mlkit.common.MlKit
+import com.google.firebase.components.ComponentRegistrar
+import com.google.mlkit.common.internal.CommonComponentRegistrar
 import com.google.mlkit.common.model.DownloadConditions
 import com.google.mlkit.common.model.RemoteModelManager
+import com.google.mlkit.common.sdkinternal.MlKitContext
 import com.google.mlkit.vision.digitalink.DigitalInkRecognition
 import com.google.mlkit.vision.digitalink.DigitalInkRecognitionModel
 import com.google.mlkit.vision.digitalink.DigitalInkRecognitionModelIdentifier
 import com.google.mlkit.vision.digitalink.DigitalInkRecognizer
 import com.google.mlkit.vision.digitalink.DigitalInkRecognizerOptions
 import com.google.mlkit.vision.digitalink.Ink
+import com.google.mlkit.vision.digitalink.internal.DigitalInkRecognitionRegistrar
 import helium314.keyboard.latin.handwriting.HandwritingRecognizer
 import helium314.keyboard.latin.handwriting.ModelDownloadListener
 import java.util.concurrent.TimeUnit
@@ -27,7 +30,15 @@ class HandwritingRecognizerImpl : HandwritingRecognizer {
 
     override fun init(context: Context) {
         this.appContext = context.applicationContext
-        MlKit.initialize(this.appContext)
+        try {
+            val registrars = listOf<ComponentRegistrar>(
+                CommonComponentRegistrar(),
+                DigitalInkRecognitionRegistrar()
+            )
+            MlKitContext.initialize(this.appContext, registrars)
+        } catch (e: Exception) {
+            android.util.Log.e("HandwritingRecognizer", "Failed to initialize MlKitContext", e)
+        }
         modelManager = RemoteModelManager.getInstance()
     }
 
