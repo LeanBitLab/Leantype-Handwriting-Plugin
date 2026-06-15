@@ -7,4 +7,7 @@
 *.iml
 .antigravity/
 .antigravityignore
+plugin-release.jks
+keystore.properties
+
 
