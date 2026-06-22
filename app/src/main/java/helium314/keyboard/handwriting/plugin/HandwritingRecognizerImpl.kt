@@ -44,11 +44,16 @@ class HandwritingRecognizerImpl : HandwritingRecognizer {
     }
 
     private fun getSupportedLanguageTag(language: String): String? {
-        val allSupported = try {
-            DigitalInkRecognitionModelIdentifier.allModelIdentifiers().map { it.languageTag }.toSet()
+        val allSupported = HashSet<String>()
+        try {
+            for (id in DigitalInkRecognitionModelIdentifier.allModelIdentifiers()) {
+                val tag = id.languageTag
+                if (!tag.contains("-x-gesture", ignoreCase = true)) {
+                    allSupported.add(tag)
+                }
+            }
         } catch (e: Exception) {
             android.util.Log.e("HandwritingRecognizer", "Failed to list all model identifiers", e)
-            emptySet()
         }
 
         if (allSupported.isEmpty()) {
@@ -59,15 +64,26 @@ class HandwritingRecognizerImpl : HandwritingRecognizer {
             return language
         }
 
-        val parts = language.split("-")
+        val parts = ArrayList<String>()
+        var start = 0
+        while (true) {
+            val idx = language.indexOf('-', start)
+            if (idx == -1) {
+                parts.add(language.substring(start))
+                break
+            }
+            parts.add(language.substring(start, idx))
+            start = idx + 1
+        }
         if (parts.isEmpty()) return null
 
         val lang = parts[0]
-        val script = parts.getOrNull(1)?.takeIf { it.length == 4 }
-        val region = parts.getOrNull(1)?.takeIf { it.length in 2..3 }
-            ?: parts.getOrNull(2)?.takeIf { it.length in 2..3 }
+        val part1 = if (parts.size > 1) parts[1] else null
+        val part2 = if (parts.size > 2) parts[2] else null
+        val script = part1?.takeIf { it.length == 4 }
+        val region = part1?.takeIf { it.length in 2..3 } ?: part2?.takeIf { it.length in 2..3 }
 
-        val candidates = mutableListOf<String>()
+        val candidates = ArrayList<String>()
         if (script != null) {
             if (region != null) {
                 candidates.add("$lang-$script-$region")
@@ -79,15 +95,17 @@ class HandwritingRecognizerImpl : HandwritingRecognizer {
         candidates.add(lang)
 
         for (candidate in candidates) {
-            val matched = allSupported.firstOrNull { it.equals(candidate, ignoreCase = true) }
-            if (matched != null) {
-                return matched
+            for (supported in allSupported) {
+                if (supported.equals(candidate, ignoreCase = true)) {
+                    return supported
+                }
             }
         }
 
-        val prefixMatch = allSupported.firstOrNull { it.startsWith("$lang-", ignoreCase = true) }
-        if (prefixMatch != null) {
-            return prefixMatch
+        for (supported in allSupported) {
+            if (supported.startsWith("$lang-", ignoreCase = true)) {
+                return supported
+            }
         }
 
         return null
@@ -191,7 +209,11 @@ class HandwritingRecognizerImpl : HandwritingRecognizer {
             val task = recognizer.recognize(ink)
             
             val result = Tasks.await(task, 10, TimeUnit.SECONDS)
-            return result.candidates.map { it.text }
+            val list = ArrayList<String>()
+            for (candidate in result.candidates) {
+                list.add(candidate.text)
+            }
+            return list
         } catch (e: Exception) {
             android.util.Log.e("HandwritingRecognizer", "Recognition failed", e)
         }
