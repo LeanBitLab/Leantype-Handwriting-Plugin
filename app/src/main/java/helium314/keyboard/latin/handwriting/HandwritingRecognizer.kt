@@ -14,4 +14,6 @@ interface HandwritingRecognizer {
     fun isLanguageReady(language: String): Boolean
     fun downloadModel(language: String, listener: ModelDownloadListener)
     fun recognize(strokes: List<FloatArray>): List<String>?
+    // ponytail: allow deleting downloaded models, default false for backward compatibility
+    fun removeModel(language: String): Boolean = false
 }

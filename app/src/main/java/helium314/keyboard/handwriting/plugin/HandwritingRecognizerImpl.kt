@@ -24,9 +24,9 @@ class HandwritingRecognizerImpl : HandwritingRecognizer {
     private lateinit var appContext: Context
     private lateinit var modelManager: RemoteModelManager
     
-    private var currentModel: DigitalInkRecognitionModel? = null
-    private var currentRecognizer: DigitalInkRecognizer? = null
-    private var currentLanguageTag: String? = null
+    @Volatile private var currentModel: DigitalInkRecognitionModel? = null
+    @Volatile private var currentRecognizer: DigitalInkRecognizer? = null
+    @Volatile private var currentLanguageTag: String? = null
 
     override fun init(context: Context) {
         this.appContext = context.applicationContext
@@ -126,6 +126,9 @@ class HandwritingRecognizerImpl : HandwritingRecognizer {
                 DigitalInkRecognizerOptions.builder(model).build()
             )
             
+            // Close previous recognizer to prevent native C++ memory leaks
+            currentRecognizer?.close()
+
             this.currentModel = model
             this.currentRecognizer = recognizer
             this.currentLanguageTag = supportedLanguage
@@ -137,6 +140,7 @@ class HandwritingRecognizerImpl : HandwritingRecognizer {
     }
 
     override fun isLanguageReady(language: String): Boolean {
+        if (!::modelManager.isInitialized) return false
         val supportedLanguage = getSupportedLanguageTag(language) ?: return false
         try {
             val modelIdentifier = DigitalInkRecognitionModelIdentifier.fromLanguageTag(supportedLanguage)
@@ -152,6 +156,10 @@ class HandwritingRecognizerImpl : HandwritingRecognizer {
     }
 
     override fun downloadModel(language: String, listener: ModelDownloadListener) {
+        if (!::modelManager.isInitialized) {
+            listener.onComplete(false)
+            return
+        }
         val supportedLanguage = getSupportedLanguageTag(language)
         if (supportedLanguage == null) {
             listener.onComplete(false)
@@ -218,5 +226,28 @@ class HandwritingRecognizerImpl : HandwritingRecognizer {
             android.util.Log.e("HandwritingRecognizer", "Recognition failed", e)
         }
         return null
+    }
+
+    // ponytail: implement model deletion using ML Kit RemoteModelManager
+    override fun removeModel(language: String): Boolean {
+        if (!::modelManager.isInitialized) return false
+        val supportedLanguage = getSupportedLanguageTag(language) ?: return false
+        try {
+            val modelIdentifier = DigitalInkRecognitionModelIdentifier.fromLanguageTag(supportedLanguage)
+                ?: return false
+            val model = DigitalInkRecognitionModel.builder(modelIdentifier).build()
+            val deleteTask = modelManager.deleteDownloadedModel(model)
+            Tasks.await(deleteTask, 5, TimeUnit.SECONDS)
+            if (currentLanguageTag == supportedLanguage) {
+                currentRecognizer?.close()
+                currentModel = null
+                currentRecognizer = null
+                currentLanguageTag = null
+            }
+            return true
+        } catch (e: Exception) {
+            android.util.Log.e("HandwritingRecognizer", "Failed to delete model for $supportedLanguage", e)
+        }
+        return false
     }
 }
