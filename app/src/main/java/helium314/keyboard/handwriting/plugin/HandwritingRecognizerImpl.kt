@@ -153,12 +153,6 @@ class HandwritingRecognizerImpl : HandwritingRecognizer {
             }
         }
 
-        for (supported in allSupported) {
-            if (supported.startsWith("$lang-", ignoreCase = true)) {
-                return supported
-            }
-        }
-
         return null
     }
 
@@ -215,7 +209,8 @@ class HandwritingRecognizerImpl : HandwritingRecognizer {
                 val baseLang = supportedLanguage.substringBefore('-').lowercase()
                 val script = LANG_TO_SCRIPT[baseLang] ?: "latin"
                 val baseDir = ctx.noBackupFilesDir ?: ctx.filesDir
-                val tagsToCheck = setOf(supportedLanguage, language.replace('_', '-'), baseLang, language)
+                val normalizedTag = language.replace('_', '-')
+                val tagsToCheck = listOf(supportedLanguage, normalizedTag, baseLang)
                 var modelDir: java.io.File? = null
                 for (tag in tagsToCheck) {
                     val f = java.io.File(baseDir, "com.google.mlkit.models/$tag/DIGITAL_INK/0")
@@ -281,33 +276,29 @@ class HandwritingRecognizerImpl : HandwritingRecognizer {
     }
 
     override fun isLanguageReady(language: String): Boolean {
-        val supportedLanguage = getSupportedLanguageTag(language) ?: language
-        val baseLang = language.substringBefore('-').lowercase()
         val normalizedTag = language.replace('_', '-')
         
         // 1. Direct file check on disk (reliable for imported models)
-        val ctx = appContext
+        val ctx = if (::appContext.isInitialized) appContext else null
         if (ctx != null) {
             val baseDir = ctx.noBackupFilesDir ?: ctx.filesDir
-            val tagsToCheck = setOf(supportedLanguage, normalizedTag, baseLang, language)
-            for (tag in tagsToCheck) {
-                val modelFile = java.io.File(baseDir, "com.google.mlkit.models/$tag/DIGITAL_INK/0/model.tflite")
-                if (modelFile.exists() && modelFile.length() > 0) {
-                    return true
-                }
+            val modelFile = java.io.File(baseDir, "com.google.mlkit.models/$normalizedTag/DIGITAL_INK/0/model.tflite")
+            if (modelFile.exists() && modelFile.length() > 0) {
+                return true
             }
         }
 
         // 2. Fallback to modelManager
         if (!::modelManager.isInitialized) return false
         try {
+            val supportedLanguage = getSupportedLanguageTag(language) ?: normalizedTag
             val modelIdentifier = DigitalInkRecognitionModelIdentifier.fromLanguageTag(supportedLanguage)
                 ?: return false
             val model = DigitalInkRecognitionModel.builder(modelIdentifier).build()
             val checkTask = modelManager.isModelDownloaded(model)
-            return Tasks.await(checkTask, 2, TimeUnit.SECONDS)
+            return Tasks.await(checkTask, 1, TimeUnit.SECONDS)
         } catch (e: Exception) {
-            android.util.Log.e("HandwritingRecognizer", "Failed to check model download status for $supportedLanguage (requested: $language)", e)
+            android.util.Log.e("HandwritingRecognizer", "Failed to check model download status for $language", e)
         }
         return false
     }
