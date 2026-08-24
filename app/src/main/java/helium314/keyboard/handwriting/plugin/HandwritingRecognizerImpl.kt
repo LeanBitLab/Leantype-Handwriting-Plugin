@@ -216,40 +216,50 @@ class HandwritingRecognizerImpl : HandwritingRecognizer {
                 val script = LANG_TO_SCRIPT[baseLang] ?: "latin"
                 val baseDir = ctx.noBackupFilesDir ?: ctx.filesDir
                 val tagsToCheck = setOf(supportedLanguage, language.replace('_', '-'), baseLang, language)
-                var modelFile: java.io.File? = null
+                var modelDir: java.io.File? = null
                 for (tag in tagsToCheck) {
-                    val f = java.io.File(baseDir, "com.google.mlkit.models/$tag/DIGITAL_INK/0/model.tflite")
-                    if (f.exists() && f.length() > 0) {
-                        modelFile = f
+                    val f = java.io.File(baseDir, "com.google.mlkit.models/$tag/DIGITAL_INK/0")
+                    if (java.io.File(f, "model.tflite").exists() && java.io.File(f, "model.tflite").length() > 0) {
+                        modelDir = f
                         break
                     }
                 }
 
-                if (modelFile != null) {
+                if (modelDir != null) {
                     try {
-                        val recospecFile = java.io.File(ctx.cacheDir, "hw_$script.recospec")
-                        if (!recospecFile.exists() || recospecFile.length() == 0L) {
-                            ctx.assets.open("recospecs/$script.recospec").use { input ->
-                                java.io.FileOutputStream(recospecFile).use { output ->
-                                    input.copyTo(output)
+                        val localRecospec = java.io.File(modelDir, "recospec")
+                        val recospecFile = if (localRecospec.exists() && localRecospec.length() > 0) {
+                            localRecospec
+                        } else {
+                            val assetRecospec = java.io.File(ctx.cacheDir, "hw_$script.recospec")
+                            if (!assetRecospec.exists() || assetRecospec.length() == 0L) {
+                                ctx.assets.open("recospecs/$script.recospec").use { input ->
+                                    java.io.FileOutputStream(assetRecospec).use { output ->
+                                        input.copyTo(output)
+                                    }
                                 }
                             }
+                            assetRecospec
                         }
+
+                        val modelFile = java.io.File(modelDir, "model.tflite")
+                        val localFst = java.io.File(modelDir, "fst.compact")
+                        val emptyFstFile = java.io.File(ctx.cacheDir, "empty.fst").apply {
+                            if (!exists()) createNewFile()
+                        }
+                        val fstFile = if (localFst.exists() && localFst.length() > 0) localFst else emptyFstFile
 
                         val jniField = recognizer.javaClass.getDeclaredField("zzb")
                         jniField.isAccessible = true
                         val jniRef = jniField.get(recognizer) as? java.util.concurrent.atomic.AtomicReference<*>
                         val jni = jniRef?.get() as? com.google.mlkit.vision.digitalink.recognition.internal.DigitalInkRecognizerJni
-                        if (jni != null) {
-                            val emptyFstFile = java.io.File(ctx.cacheDir, "empty.fst").apply {
-                                if (!exists()) createNewFile()
-                            }
+                        if (jni != null && recospecFile.exists() && modelFile.exists()) {
                             java.io.FileInputStream(recospecFile).use { recospecIn ->
                                 java.io.FileInputStream(modelFile).use { modelIn ->
-                                    java.io.FileInputStream(emptyFstFile).use { fstIn ->
+                                    java.io.FileInputStream(fstFile).use { fstIn ->
                                         val nativeHandle = jni.initNativeRecognizer(recospecIn, modelIn, fstIn)
                                         jni.zza.set(nativeHandle)
-                                        android.util.Log.i("HandwritingRecognizer", "Directly initialized native recognizer handle=$nativeHandle for $supportedLanguage (script=$script)")
+                                        android.util.Log.i("HandwritingRecognizer", "Directly initialized native recognizer handle=$nativeHandle for $supportedLanguage (script=$script, fstSize=${fstFile.length()})")
                                     }
                                 }
                             }
