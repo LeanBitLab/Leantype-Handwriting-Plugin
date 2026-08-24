@@ -20,5 +20,7 @@
 -keep interface com.google.mlkit.** { *; }
 -keep class com.google.android.gms.** { *; }
 -keep interface com.google.android.gms.** { *; }
+-keep class androidx.work.** { *; }
+-keep interface androidx.work.** { *; }
 -dontwarn com.google.**
 -dontwarn androidx.**

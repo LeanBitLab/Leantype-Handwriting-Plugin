@@ -31,8 +31,23 @@ class HandwritingRecognizerImpl : HandwritingRecognizer {
     override fun init(context: Context) {
         this.appContext = context.applicationContext
         loadNativeLibrary(this.appContext)
+        ensureWorkManagerInitialized(this.appContext)
         ensureMlKitInitialized(this.appContext)
         modelManager = RemoteModelManager.getInstance()
+    }
+
+    private fun ensureWorkManagerInitialized(ctx: Context) {
+        try {
+            androidx.work.WorkManager.getInstance(ctx)
+        } catch (_: Throwable) {
+            try {
+                val config = androidx.work.Configuration.Builder().build()
+                androidx.work.WorkManager.initialize(ctx, config)
+                android.util.Log.i("HandwritingRecognizer", "WorkManager successfully initialized in plugin")
+            } catch (e: Throwable) {
+                android.util.Log.w("HandwritingRecognizer", "Failed to initialize WorkManager in plugin", e)
+            }
+        }
     }
 
     private fun loadNativeLibrary(ctx: Context) {
