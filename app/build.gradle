@@ -73,6 +73,8 @@ android {
 
 dependencies {
     implementation 'androidx.core:core-ktx:1.12.0'
-    implementation 'com.google.android.gms:play-services-tasks:18.0.2'
-    implementation 'com.google.mlkit:digital-ink-recognition:19.0.0'
+    compileOnly 'androidx.work:work-runtime:2.10.1'
+    implementation('com.google.mlkit:digital-ink-recognition:19.0.0') {
+        exclude group: 'androidx.work', module: 'work-runtime'
+    }
 }
