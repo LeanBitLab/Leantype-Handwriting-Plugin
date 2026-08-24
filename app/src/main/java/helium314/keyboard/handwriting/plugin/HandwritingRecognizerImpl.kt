@@ -191,15 +191,20 @@ class HandwritingRecognizerImpl : HandwritingRecognizer {
     }
 
     override fun isLanguageReady(language: String): Boolean {
-        val supportedLanguage = getSupportedLanguageTag(language) ?: return false
+        val supportedLanguage = getSupportedLanguageTag(language) ?: language
+        val baseLang = language.substringBefore('-').lowercase()
+        val normalizedTag = language.replace('_', '-')
         
         // 1. Direct file check on disk (reliable for imported models)
         val ctx = appContext
         if (ctx != null) {
             val baseDir = ctx.noBackupFilesDir ?: ctx.filesDir
-            val modelFile = java.io.File(baseDir, "com.google.mlkit.models/$supportedLanguage/DIGITAL_INK/0/model.tflite")
-            if (modelFile.exists() && modelFile.length() > 0) {
-                return true
+            val tagsToCheck = setOf(supportedLanguage, normalizedTag, baseLang, language)
+            for (tag in tagsToCheck) {
+                val modelFile = java.io.File(baseDir, "com.google.mlkit.models/$tag/DIGITAL_INK/0/model.tflite")
+                if (modelFile.exists() && modelFile.length() > 0) {
+                    return true
+                }
             }
         }
 
