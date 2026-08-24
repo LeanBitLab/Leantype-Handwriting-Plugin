@@ -162,8 +162,37 @@ class HandwritingRecognizerImpl : HandwritingRecognizer {
         return null
     }
 
+    private val LANG_TO_SCRIPT = mapOf(
+        "ar" to "arabic", "fa" to "arabic", "ur" to "arabic", "ps" to "arabic",
+        "hy" to "armenian",
+        "bn" to "bengali", "as" to "bengali",
+        "zh" to "chinese",
+        "ru" to "cyrillic", "uk" to "cyrillic", "be" to "cyrillic", "bg" to "cyrillic", "mk" to "cyrillic", "sr" to "cyrillic", "kk" to "cyrillic", "ky" to "cyrillic", "tg" to "cyrillic", "mn" to "cyrillic",
+        "hi" to "devanagari", "mr" to "devanagari", "ne" to "devanagari", "sa" to "devanagari", "kok" to "devanagari", "mai" to "devanagari", "bho" to "devanagari",
+        "am" to "ethiopic", "ti" to "ethiopic",
+        "ka" to "georgian",
+        "el" to "greek",
+        "gu" to "gujarati",
+        "he" to "hebrew", "iw" to "hebrew", "yi" to "hebrew",
+        "ja" to "japanese",
+        "kn" to "kannada",
+        "km" to "khmer",
+        "ko" to "korean",
+        "lo" to "lao",
+        "ml" to "malayalam",
+        "my" to "myanmar",
+        "or" to "odia",
+        "pa" to "punjabi",
+        "si" to "sinhala",
+        "ta" to "tamil",
+        "te" to "telugu",
+        "th" to "thai",
+        "bo" to "tibetan",
+        "vi" to "vietnamese"
+    )
+
     override fun setLanguage(language: String): Boolean {
-        val supportedLanguage = getSupportedLanguageTag(language) ?: return false
+        val supportedLanguage = getSupportedLanguageTag(language) ?: language
         if (currentLanguageTag == supportedLanguage && currentRecognizer != null) {
             return true
         }
@@ -179,6 +208,52 @@ class HandwritingRecognizerImpl : HandwritingRecognizer {
             
             // Close previous recognizer to prevent native C++ memory leaks
             currentRecognizer?.close()
+
+            // Direct Sideload/Import JNI Init
+            val ctx = if (::appContext.isInitialized) appContext else null
+            if (ctx != null) {
+                val baseLang = supportedLanguage.substringBefore('-').lowercase()
+                val script = LANG_TO_SCRIPT[baseLang] ?: "latin"
+                val baseDir = ctx.noBackupFilesDir ?: ctx.filesDir
+                val tagsToCheck = setOf(supportedLanguage, language.replace('_', '-'), baseLang, language)
+                var modelFile: java.io.File? = null
+                for (tag in tagsToCheck) {
+                    val f = java.io.File(baseDir, "com.google.mlkit.models/$tag/DIGITAL_INK/0/model.tflite")
+                    if (f.exists() && f.length() > 0) {
+                        modelFile = f
+                        break
+                    }
+                }
+
+                if (modelFile != null) {
+                    try {
+                        val recospecFile = java.io.File(ctx.cacheDir, "hw_$script.recospec")
+                        if (!recospecFile.exists() || recospecFile.length() == 0L) {
+                            ctx.assets.open("recospecs/$script.recospec").use { input ->
+                                java.io.FileOutputStream(recospecFile).use { output ->
+                                    input.copyTo(output)
+                                }
+                            }
+                        }
+
+                        val jniField = recognizer.javaClass.getDeclaredField("zzb")
+                        jniField.isAccessible = true
+                        val jniRef = jniField.get(recognizer) as? java.util.concurrent.atomic.AtomicReference<*>
+                        val jni = jniRef?.get() as? com.google.mlkit.vision.digitalink.recognition.internal.DigitalInkRecognizerJni
+                        if (jni != null) {
+                            java.io.FileInputStream(recospecFile).use { recospecIn ->
+                                java.io.FileInputStream(modelFile).use { modelIn ->
+                                    val nativeHandle = jni.initNativeRecognizer(recospecIn, modelIn, null)
+                                    jni.zza.set(nativeHandle)
+                                    android.util.Log.i("HandwritingRecognizer", "Directly initialized native recognizer handle=$nativeHandle for $supportedLanguage (script=$script)")
+                                }
+                            }
+                        }
+                    } catch (e: Throwable) {
+                        android.util.Log.w("HandwritingRecognizer", "Failed direct JNI init, fallback to standard", e)
+                    }
+                }
+            }
 
             this.currentModel = model
             this.currentRecognizer = recognizer
