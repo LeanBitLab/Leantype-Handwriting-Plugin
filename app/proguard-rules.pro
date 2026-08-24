@@ -14,3 +14,11 @@
 -keep interface helium314.keyboard.latin.handwriting.ModelDownloadListener {
     <methods>;
 }
+
+# Keep ML Kit components, JNI classes and Firebase/GMS dependencies
+-keep class com.google.mlkit.** { *; }
+-keep interface com.google.mlkit.** { *; }
+-keep class com.google.android.gms.** { *; }
+-keep interface com.google.android.gms.** { *; }
+-dontwarn com.google.**
+-dontwarn androidx.**
