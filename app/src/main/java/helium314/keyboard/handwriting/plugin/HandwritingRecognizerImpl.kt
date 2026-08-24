@@ -30,17 +30,33 @@ class HandwritingRecognizerImpl : HandwritingRecognizer {
 
     override fun init(context: Context) {
         this.appContext = context.applicationContext
+        ensureMlKitInitialized(this.appContext)
+        modelManager = RemoteModelManager.getInstance()
+    }
 
+    private fun ensureMlKitInitialized(ctx: Context) {
         try {
+            val mlKitContextClass = Class.forName("com.google.mlkit.common.sdkinternal.MlKitContext")
+            try {
+                val field = mlKitContextClass.getDeclaredField("zzb")
+                field.isAccessible = true
+                field.set(null, null)
+            } catch (_: Throwable) {}
+
             val registrars = listOf<ComponentRegistrar>(
                 CommonComponentRegistrar(),
                 DigitalInkRecognitionRegistrar()
             )
-            MlKitContext.initialize(this.appContext, registrars)
-        } catch (e: Exception) {
-            android.util.Log.e("HandwritingRecognizer", "Failed to initialize MlKitContext", e)
+            val initMethod = mlKitContextClass.getDeclaredMethod(
+                "initialize",
+                Context::class.java,
+                List::class.java
+            )
+            initMethod.invoke(null, ctx, registrars)
+            android.util.Log.i("HandwritingRecognizer", "MlKitContext successfully initialized with DigitalInkRecognitionRegistrar")
+        } catch (e: Throwable) {
+            android.util.Log.w("HandwritingRecognizer", "ensureMlKitInitialized fallback", e)
         }
-        modelManager = RemoteModelManager.getInstance()
     }
 
     private fun getSupportedLanguageTag(language: String): String? {
