@@ -191,15 +191,26 @@ class HandwritingRecognizerImpl : HandwritingRecognizer {
     }
 
     override fun isLanguageReady(language: String): Boolean {
-        if (!::modelManager.isInitialized) return false
         val supportedLanguage = getSupportedLanguageTag(language) ?: return false
+        
+        // 1. Direct file check on disk (reliable for imported models)
+        val ctx = appContext
+        if (ctx != null) {
+            val baseDir = ctx.noBackupFilesDir ?: ctx.filesDir
+            val modelFile = java.io.File(baseDir, "com.google.mlkit.models/$supportedLanguage/DIGITAL_INK/0/model.tflite")
+            if (modelFile.exists() && modelFile.length() > 0) {
+                return true
+            }
+        }
+
+        // 2. Fallback to modelManager
+        if (!::modelManager.isInitialized) return false
         try {
             val modelIdentifier = DigitalInkRecognitionModelIdentifier.fromLanguageTag(supportedLanguage)
                 ?: return false
             val model = DigitalInkRecognitionModel.builder(modelIdentifier).build()
-            
             val checkTask = modelManager.isModelDownloaded(model)
-            return Tasks.await(checkTask, 5, TimeUnit.SECONDS)
+            return Tasks.await(checkTask, 2, TimeUnit.SECONDS)
         } catch (e: Exception) {
             android.util.Log.e("HandwritingRecognizer", "Failed to check model download status for $supportedLanguage (requested: $language)", e)
         }
