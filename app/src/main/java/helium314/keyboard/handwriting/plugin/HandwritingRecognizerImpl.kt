@@ -30,8 +30,28 @@ class HandwritingRecognizerImpl : HandwritingRecognizer {
 
     override fun init(context: Context) {
         this.appContext = context.applicationContext
+        loadNativeLibrary(this.appContext)
         ensureMlKitInitialized(this.appContext)
         modelManager = RemoteModelManager.getInstance()
+    }
+
+    private fun loadNativeLibrary(ctx: Context) {
+        try {
+            System.loadLibrary("digitalink")
+            android.util.Log.i("HandwritingRecognizer", "Loaded digitalink via System.loadLibrary")
+        } catch (e: Throwable) {
+            try {
+                val libFile = java.io.File(ctx.filesDir, "plugin_libs/handwriting/libdigitalink.so")
+                if (libFile.exists()) {
+                    System.load(libFile.absolutePath)
+                    android.util.Log.i("HandwritingRecognizer", "Loaded digitalink via System.load: ${libFile.absolutePath}")
+                } else {
+                    android.util.Log.e("HandwritingRecognizer", "libdigitalink.so not found at ${libFile.absolutePath}")
+                }
+            } catch (e2: Throwable) {
+                android.util.Log.e("HandwritingRecognizer", "Failed to load digitalink library", e2)
+            }
+        }
     }
 
     private fun ensureMlKitInitialized(ctx: Context) {
