@@ -297,7 +297,7 @@ class HandwritingRecognizerImpl : HandwritingRecognizer {
             val model = DigitalInkRecognitionModel.builder(modelIdentifier).build()
             val checkTask = modelManager.isModelDownloaded(model)
             return Tasks.await(checkTask, 1, TimeUnit.SECONDS)
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             android.util.Log.e("HandwritingRecognizer", "Failed to check model download status for $language", e)
         }
         return false
