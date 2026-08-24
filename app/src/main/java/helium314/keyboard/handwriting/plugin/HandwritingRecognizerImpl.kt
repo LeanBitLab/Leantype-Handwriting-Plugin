@@ -241,11 +241,16 @@ class HandwritingRecognizerImpl : HandwritingRecognizer {
                         val jniRef = jniField.get(recognizer) as? java.util.concurrent.atomic.AtomicReference<*>
                         val jni = jniRef?.get() as? com.google.mlkit.vision.digitalink.recognition.internal.DigitalInkRecognizerJni
                         if (jni != null) {
+                            val emptyFstFile = java.io.File(ctx.cacheDir, "empty.fst").apply {
+                                if (!exists()) createNewFile()
+                            }
                             java.io.FileInputStream(recospecFile).use { recospecIn ->
                                 java.io.FileInputStream(modelFile).use { modelIn ->
-                                    val nativeHandle = jni.initNativeRecognizer(recospecIn, modelIn, null)
-                                    jni.zza.set(nativeHandle)
-                                    android.util.Log.i("HandwritingRecognizer", "Directly initialized native recognizer handle=$nativeHandle for $supportedLanguage (script=$script)")
+                                    java.io.FileInputStream(emptyFstFile).use { fstIn ->
+                                        val nativeHandle = jni.initNativeRecognizer(recospecIn, modelIn, fstIn)
+                                        jni.zza.set(nativeHandle)
+                                        android.util.Log.i("HandwritingRecognizer", "Directly initialized native recognizer handle=$nativeHandle for $supportedLanguage (script=$script)")
+                                    }
                                 }
                             }
                         }
