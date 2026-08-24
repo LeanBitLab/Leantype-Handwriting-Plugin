@@ -7,6 +7,10 @@
     public <methods>;
 }
 
+-keep class helium314.keyboard.handwriting.plugin.NativeDigitalInkRecognitionException {
+    *;
+}
+
 # Keep the interface methods to match the host app
 -keep interface helium314.keyboard.latin.handwriting.HandwritingRecognizer {
     <methods>;
@@ -14,6 +18,11 @@
 -keep interface helium314.keyboard.latin.handwriting.ModelDownloadListener {
     <methods>;
 }
+
+-keep class * extends androidx.work.ListenableWorker {
+    public <init>(android.content.Context, androidx.work.WorkerParameters);
+}
+-keepnames class com.google.mlkit.** extends androidx.work.ListenableWorker
 
 # Keep ML Kit components, JNI classes and Firebase/GMS dependencies
 -keep class com.google.mlkit.** { *; }
