@@ -20,6 +20,14 @@ A dynamic plugin for the [LeanType Keyboard](https://github.com/LeanBitLab/LeanT
 
 ---
 
+## 📋 System Requirements
+
+- **Operating System**: Android 6.0 (API 23) or higher
+- **Supported CPU Architectures**: `arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`
+- **Host Keyboard**: [LeanType](https://github.com/LeanBitLab/LeanType) v4.1.0+ (All flavors)
+
+---
+
 ## 🛠️ How it Works
 
 To maintain a lean, pure FOSS core keyboard while giving users access to advanced handwriting capabilities, this plugin isolates the ML Kit SDK and native libraries (`libdigitalink_native.so`) into a separate dynamic package.
