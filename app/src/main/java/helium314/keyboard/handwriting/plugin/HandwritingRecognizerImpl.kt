@@ -296,7 +296,9 @@ class HandwritingRecognizerImpl : HandwritingRecognizer {
                 ?: return false
             val model = DigitalInkRecognitionModel.builder(modelIdentifier).build()
             val checkTask = modelManager.isModelDownloaded(model)
-            return Tasks.await(checkTask, 1, TimeUnit.SECONDS)
+            // ML Kit's model manager can take a few seconds to initialize on a cold start; a short timeout
+            // made an installed model look missing. Callers run this off the main thread.
+            return Tasks.await(checkTask, 5, TimeUnit.SECONDS)
         } catch (e: Throwable) {
             android.util.Log.e("HandwritingRecognizer", "Failed to check model download status for $language", e)
         }
